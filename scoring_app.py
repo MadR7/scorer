@@ -285,7 +285,7 @@ def main():
     
     st.set_page_config(page_title="Video Description Scoring", layout="wide")
     
-    # Custom CSS for black background
+    # Custom CSS for black background and mobile-friendly layout
     st.markdown("""
         <style>
         .stApp {
@@ -304,25 +304,89 @@ def main():
         div[data-baseweb="select"] {
             color: #FFFFFF;
         }
+        
+        /* Mobile-friendly: compact everything */
+        .stVideo {
+            max-height: 250px !important;
+        }
+        
+        /* Scrollable description boxes */
+        .description-box {
+            max-height: 120px;
+            overflow-y: auto;
+            padding: 10px;
+            border: 1px solid #333;
+            border-radius: 5px;
+            margin-bottom: 5px;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        
+        /* Compact radio buttons */
+        .stRadio > div {
+            gap: 0.2rem !important;
+        }
+        
+        .stRadio label {
+            font-size: 15px !important;
+            padding: 2px 0 !important;
+        }
+        
+        /* Make tabs compact */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 0px;
+            margin-bottom: 5px;
+        }
+        
+        .stTabs [data-baseweb="tab"] {
+            padding: 6px 12px;
+            font-size: 14px;
+        }
+        
+        /* Compact headers */
+        h3 {
+            margin-top: 5px !important;
+            margin-bottom: 8px !important;
+            font-size: 1.2rem !important;
+        }
+        
+        /* Compact progress */
+        .stProgress {
+            margin-bottom: 5px !important;
+        }
         </style>
     """, unsafe_allow_html=True)
     
-    st.title("Video Description Scoring")
+    # Show welcome screen only once
+    if 'welcome_seen' not in st.session_state:
+        st.session_state.welcome_seen = False
     
-    # Clear, prominent instructions
-    st.markdown("""
-    ### Welcome! 👋
+    if not st.session_state.welcome_seen:
+        st.markdown("""
+        # 👋 Welcome!
+        
+        ## What you'll do:
+        
+        ### 1. Watch 3 short videos
+        Each is 1-2 minutes long
+        
+        ### 2. Compare two descriptions
+        You'll see RED and YELLOW text for each video
+        
+        ### 3. Pick the better one
+        Choose which description lets you perfectly replicate the task
+        
+        ### 4. That's it!
+        Takes about 5 minutes total
+        """, unsafe_allow_html=True)
+        
+        if st.button("🚀 Let's Start", type="primary", use_container_width=True):
+            st.session_state.welcome_seen = True
+            st.rerun()
+        return
     
-    **What you'll do:**
-    1. Watch 3 short videos (1-2 minutes each)
-    2. For each video, you'll see two descriptions (in RED and YELLOW)
-    3. Pick which description is better, or say they're equal
-    4. The criteria to pick is, with just the description, you should be able to perfectly replicate the task in the video
-    
- 
-    """)
-    
-    st.divider()
+    # Compact header for scoring screens
+    st.markdown("## Video Description Scoring")
     
     # Step 1: Setup (simplified for end users)
     if st.session_state.selected_run is None:
@@ -361,12 +425,13 @@ def main():
     
     # Step 2: Auto-start with random videos
     if not st.session_state.rater_id:
-        if st.button("🚀 Start Scoring", type="primary", use_container_width=True):
+        st.markdown("### Ready?")
+        if st.button("Start", type="primary", use_container_width=True):
             # Generate a unique random rater ID and seed
             import time
             random.seed(int(time.time() * 1000) % 2**32)
             st.session_state.rater_id = f"rater_{random.randint(1000, 9999)}"
-            with st.spinner("Loading videos..."):
+            with st.spinner("Loading..."):
                 st.session_state.videos = get_videos_from_gcs(
                     st.session_state.selected_run,
                     st.session_state.rater_id
@@ -403,9 +468,9 @@ def main():
     # Current video
     video = videos[idx]
     
-    # Progress indicator
-    st.progress((idx) / len(videos), text=f"Video {idx+1} of 3")
-    st.subheader(f"Video {idx+1}/3")
+    # Compact progress indicator
+    st.progress((idx) / len(videos), text=f"{idx+1}/3")
+    st.markdown(f"### Video {idx+1}")
     
     # Download video
     with st.spinner("Loading video..."):
@@ -418,72 +483,59 @@ def main():
             st.rerun()
         return
     
-    # LAYOUT
-    left_col, right_col = st.columns([2, 1])
+    # MOBILE-FRIENDLY SINGLE COLUMN LAYOUT
+    # Video at top (compact)
+    st.video(str(video_path))
     
-    with left_col:
-        # Video (large, top)
-        st.video(str(video_path))
-        
-        # Text outputs (bottom, side by side)
-        text_col1, text_col2 = st.columns(2)
-        
-        with text_col1:
-            color1 = video['color1']
-            st.markdown(f"<div style='font-size: 18px; font-weight: bold; color: {color1}; margin-bottom: 10px;'>{color1.upper()} TEXT</div>", unsafe_allow_html=True)
-            formatted1 = format_steps(video['text1'])
-            st.markdown(f"<div style='font-size: 15px; line-height: 1.6;'><span style='color: {color1};'>{formatted1}</span></div>", unsafe_allow_html=True)
-        
-        with text_col2:
-            color2 = video['color2']
-            st.markdown(f"<div style='font-size: 18px; font-weight: bold; color: {color2}; margin-bottom: 10px;'>{color2.upper()} TEXT</div>", unsafe_allow_html=True)
-            formatted2 = format_steps(video['text2'])
-            st.markdown(f"<div style='font-size: 15px; line-height: 1.6;'><span style='color: {color2};'>{formatted2}</span></div>", unsafe_allow_html=True)
+    # Tabs for descriptions (mobile-friendly)
+    color1 = video['color1']
+    color2 = video['color2']
+    emoji1 = "🔴" if color1 == 'red' else "🟡"
+    emoji2 = "🟡" if color2 == 'yellow' else "🔴"
     
-    with right_col:
-        st.markdown("### Pick the Better Description")
+    tab1, tab2 = st.tabs([f"{emoji1} {color1.upper()}", f"{emoji2} {color2.upper()}"])
+    
+    with tab1:
+        formatted1 = format_steps(video['text1'])
+        st.markdown(f"<div class='description-box'><span style='color: {color1};'>{formatted1}</span></div>", unsafe_allow_html=True)
+    
+    with tab2:
+        formatted2 = format_steps(video['text2'])
+        st.markdown(f"<div class='description-box'><span style='color: {color2};'>{formatted2}</span></div>", unsafe_allow_html=True)
+    
+    # Scoring section
+    if st.session_state.mode == 'binary':
+        st.markdown("### Which is better?")
         
-        if st.session_state.mode == 'binary':
-            # BINARY MODE
+        choice = st.radio(
+            "Select:",
+            [f"{emoji1} {color1.upper()}", 
+             f"{emoji2} {color2.upper()}", 
+             "Both equal"],
+            key=f"binary_choice_{idx}",
+            label_visibility="collapsed"
+        )
+        
+        if st.button("Submit & Next", type="primary", use_container_width=True):
+            # Binary scoring: 1 for winner, 0 for loser, 0.5 for tie
+            if "equal" in choice.lower():
+                score1, score2 = 0.5, 0.5
+            elif color1.upper() in choice:
+                score1, score2 = 1, 0
+            else:
+                score1, score2 = 0, 1
             
-            # Map colors to emojis
-            emoji1 = "🔴" if video['color1'] == 'red' else "🟡"
-            emoji2 = "🟡" if video['color2'] == 'yellow' else "🔴"
+            # Use empty notes since we removed the field
+            notes = ""
             
-            choice = st.radio(
-                "Which is better?",
-                [f"{emoji1} {video['color1'].upper()}", 
-                 f"{emoji2} {video['color2'].upper()}", 
-                 "Both equal"],
-                key=f"binary_choice_{idx}"
-            )
+            with st.spinner("Saving..."):
+                save_score_to_gcs(video['name'], st.session_state.rater_id, color1, 
+                          video['model1'], {}, score1, notes, mode='binary')
+                save_score_to_gcs(video['name'], st.session_state.rater_id, color2,
+                          video['model2'], {}, score2, notes, mode='binary')
             
-            notes = st.text_area(
-                "Why? (optional)",
-                key=f"notes_{idx}", 
-                height=80,
-                placeholder="Optional notes...",
-            )
-            
-            st.divider()
-            
-            if st.button("Submit & Next", type="primary", use_container_width=True):
-                # Binary scoring: 1 for winner, 0 for loser, 0.5 for tie
-                if "equal" in choice.lower():
-                    score1, score2 = 0.5, 0.5
-                elif video['color1'].upper() in choice:
-                    score1, score2 = 1, 0
-                else:
-                    score1, score2 = 0, 1
-                
-                with st.spinner("Saving..."):
-                    save_score_to_gcs(video['name'], st.session_state.rater_id, video['color1'], 
-                              video['model1'], {}, score1, notes, mode='binary')
-                    save_score_to_gcs(video['name'], st.session_state.rater_id, video['color2'],
-                              video['model2'], {}, score2, notes, mode='binary')
-                
-                st.session_state.current_idx += 1
-                st.rerun()
+            st.session_state.current_idx += 1
+            st.rerun()
         
         else:
             # DETAILED MODE
