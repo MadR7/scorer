@@ -1,0 +1,7 @@
+timestamp,rater_id,video,text_color,final_score,notes,deduct_step_coverage,deduct_order,deduct_verb_precision,deduct_object/hand/tool_specificity,deduct_hallucinated_content
+2025-10-04T14:04:14.942370,jonathan,sample11,red,84,,0,1,2,2,0
+2025-10-04T14:04:14.942397,jonathan,sample11,yellow,100,,0,0,0,0,0
+2025-10-04T14:08:30.533052,jonathan,sample8,red,95,,1,0,0,0,0
+2025-10-04T14:08:30.533073,jonathan,sample8,yellow,79,,3,0,2,0,0
+2025-10-04T14:17:38.855078,jonathan,sample4,red,100,,False,0,0,0,0,0
+2025-10-04T14:17:38.855104,jonathan,sample4,yellow,100,,False,0,0,0,0,0
