@@ -33,21 +33,37 @@ RUBRIC = [
 
 def get_gcs_client():
     """Get authenticated GCS client."""
+    # Try Streamlit Cloud secrets first (only if secrets exist)
     try:
-        # Try Streamlit Cloud secrets first
-        if hasattr(st, 'secrets') and 'gcp_service_account' in st.secrets:
-            credentials = service_account.Credentials.from_service_account_info(
-                st.secrets["gcp_service_account"]
-            )
-            return Client(credentials=credentials)
-    except:
-        pass
+        # Check if secrets are configured (this may throw if no secrets.toml exists)
+        if 'gcp_service_account' in st.secrets:
+            from google.oauth2.credentials import Credentials as UserCredentials
+            
+            creds_dict = dict(st.secrets["gcp_service_account"])
+            
+            # Handle both authorized_user and service_account types
+            if creds_dict.get('type') == 'authorized_user':
+                credentials = UserCredentials(
+                    token=None,
+                    refresh_token=creds_dict.get('refresh_token'),
+                    token_uri='https://oauth2.googleapis.com/token',
+                    client_id=creds_dict.get('client_id'),
+                    client_secret=creds_dict.get('client_secret'),
+                    quota_project_id=creds_dict.get('quota_project_id')
+                )
+            else:
+                credentials = service_account.Credentials.from_service_account_info(creds_dict)
+            
+            return Client(credentials=credentials, project=creds_dict.get('quota_project_id'))
+    except (FileNotFoundError, KeyError, AttributeError):
+        pass  # No secrets configured, fall through to local credentials
     
-    # Fall back to local credentials
+    # Fall back to local application default credentials
     try:
         return Client()
-    except:
-        st.error("GCS authentication failed. Please configure credentials.")
+    except Exception as e:
+        st.error(f"❌ GCS authentication failed: {e}")
+        st.info("💡 Make sure you've run: `gcloud auth application-default login`")
         st.stop()
 
 
@@ -70,7 +86,7 @@ def init_session():
     if 'videos' not in st.session_state:
         st.session_state.videos = []
     if 'mode' not in st.session_state:
-        st.session_state.mode = None  # 'detailed' or 'binary'
+        st.session_state.mode = 'binary'  # Default to binary mode
 
 
 def list_available_runs():
@@ -267,85 +283,80 @@ def format_steps(text):
 def main():
     init_session()
     
-    st.set_page_config(page_title="Factory Task Scoring", layout="wide")
-    st.title("Factory Task Scoring")
+    st.set_page_config(page_title="Video Description Scoring", layout="wide")
+    st.title("Video Description Scoring")
     
-    # Instructions (collapsible)
-    with st.expander("📋 Instructions", expanded=False):
-        st.markdown("""
-        **Goal:** Score how well each text describes the wearer's actions in the video.
-        
-        **You will score 3 randomly selected videos.** Different raters may see different videos.
-        
-        **Two Modes Available:**
-        
-        **1. Binary Mode (Quick):**
-        - Watch video and read both texts
-        - Simply pick which text is better overall
-        - Takes ~5 minutes for 3 videos
-        
-        **2. Detailed Mode (Thorough):**
-        - Each text starts at 100 points
-        - Deduct points per category for issues found
-        - Categories: Step Coverage, Order, Verb Precision, Object/Hand/Tool, Hallucination
-        - Takes ~10-15 minutes for 3 videos
-        
-        **Note:** Colors are randomized per video for blind evaluation. All scores saved automatically.
-        """)
+    # Clear, prominent instructions
+    st.markdown("""
+    ### Welcome! 👋
+    
+    **What you'll do:**
+    1. Watch 3 short videos (1-2 minutes each)
+    2. For each video, you'll see two descriptions (in RED and YELLOW)
+    3. Pick which description is better, or say they're equal
+    4. The criteria to pick is, with just the description, you should be able to perfectly replicate the task in the video
+    
+
+    """)
     
     st.divider()
     
-    # Step 1: Select run
+    # Step 1: Setup (simplified for end users)
     if st.session_state.selected_run is None:
-        st.subheader("1. Select Inference Run")
+        st.info("ℹ️ Loading your video evaluation session...")
         
-        with st.spinner("Loading available runs from cloud..."):
+        with st.spinner("Connecting to cloud storage..."):
             runs = list_available_runs()
         
         if not runs:
-            st.error("No inference runs found in cloud storage. Upload an inference run first.")
-            st.info("Run locally: `python upload_inference_to_gcs.py output/run_XXXXXX`")
+            st.error("❌ No evaluation sessions found. Please contact the administrator.")
             return
         
-        selected = st.selectbox("Choose run", runs, help="Most recent runs appear first")
+        # Auto-select latest run or let user pick if multiple
+        if len(runs) == 1:
+            selected = runs[0]
+            st.success(f"✓ Found evaluation session: **{selected}**")
+        else:
+            st.write("Multiple evaluation sessions available. Select one:")
+            selected = st.selectbox(
+                "Evaluation session:",
+                runs,
+                help="Most recent sessions appear first"
+            )
         
-        st.subheader("2. Enter GCS Video Path")
-        gcs_input = st.text_input(
-            "GCS path",
-            value="gs://buildai-dataset/finetune_dataset/test/",
-            help="Where source videos are stored"
-        )
-        
-        if st.button("Load Run"):
-            st.session_state.selected_run = selected
-            st.session_state.gcs_video_path = gcs_input
-            st.rerun()
-        return
     
-    # Step 2: Select mode
-    if st.session_state.mode is None:
-        st.subheader("2. Choose Scoring Mode")
+    
+    # Mode selection (binary is default, but allow override)
+    if st.session_state.get('show_mode_override'):
+        st.subheader("2. Change Scoring Mode")
         mode_choice = st.radio(
             "Select mode:",
-            ["Binary (Quick - just pick which is better)", "Detailed (Thorough - deduct points per category)"],
-            help="Binary is faster, Detailed provides more granular feedback"
+            ["Binary (Quick - just pick which is better) ⭐ RECOMMENDED", "Detailed (Thorough - deduct points per category)"],
+            index=0,
+            help="Binary is faster and easier, Detailed provides more granular feedback"
         )
         
         if st.button("Continue"):
             st.session_state.mode = 'binary' if 'Binary' in mode_choice else 'detailed'
+            st.session_state.show_mode_override = False
             st.rerun()
         return
     
-    # Step 3: Enter rater ID
+    # Step 2: Auto-start with random videos
     if not st.session_state.rater_id:
-        st.subheader("3. Enter Your ID")
-        rater_input = st.text_input("Rater ID", placeholder="e.g., rater_1")
-        if st.button("Start Scoring") and rater_input:
-            st.session_state.rater_id = rater_input
-            with st.spinner("Loading videos..."):
+        st.success("✓ Setup complete!")
+        st.subheader("Ready to Start")
+        st.write("You'll score 3 random videos in binary mode (~5 minutes)")
+        
+        if st.button("🚀 Start Scoring", type="primary", use_container_width=True):
+            # Generate a unique random rater ID and seed
+            import time
+            random.seed(int(time.time() * 1000) % 2**32)
+            st.session_state.rater_id = f"rater_{random.randint(1000, 9999)}"
+            with st.spinner("Loading your 3 random videos..."):
                 st.session_state.videos = get_videos_from_gcs(
                     st.session_state.selected_run,
-                    rater_input
+                    st.session_state.rater_id
                 )
             st.rerun()
         return
@@ -366,10 +377,22 @@ def main():
     # Check if done
     idx = st.session_state.current_idx
     if idx >= len(videos):
-        mode_name = "Binary" if st.session_state.mode == 'binary' else "Detailed"
-        st.success(f"✅ All 3 videos scored ({mode_name} mode)! Thank you, {st.session_state.rater_id}.")
         st.balloons()
-        if st.button("← Return to Start"):
+        st.success("🎉 All done! Thank you for completing the evaluation!")
+        st.markdown(f"""
+        ### Great work, {st.session_state.rater_id}!
+        
+        You've successfully scored all 3 videos. Your responses have been saved automatically.
+        
+        **What happens next:**
+        - Your scores are securely stored in the cloud
+        - We'll combine your feedback with other raters
+        - This helps us improve AI models for factory task understanding
+        
+        **Questions or issues?** Contact the administrator.
+        """)
+        
+        if st.button("🔄 Start Over (Score More Videos)", use_container_width=True):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
             st.rerun()
@@ -377,9 +400,11 @@ def main():
     
     # Current video
     video = videos[idx]
-    mode_name = "Binary" if st.session_state.mode == 'binary' else "Detailed"
-    st.subheader(f"Video {idx+1}/3: {video['name']}")
-    st.caption(f"Rater: {st.session_state.rater_id} | Mode: {mode_name}")
+    
+    # Progress indicator
+    st.progress((idx) / len(videos), text=f"Progress: Video {idx+1} of 3")
+    st.subheader(f"📹 Video {idx+1}/3")
+    st.caption(f"Scorer: {st.session_state.rater_id}")
     
     # Download video
     with st.spinner("Loading video..."):
@@ -415,31 +440,47 @@ def main():
             st.markdown(f"<div style='font-size: 15px; line-height: 1.6;'><span style='color: {color2};'>{formatted2}</span></div>", unsafe_allow_html=True)
     
     with right_col:
-        st.markdown("### Scoring")
+        st.markdown("### 🎯 Your Task")
+        st.info("Watch the video, read both descriptions, then pick which one better describes what the worker is doing.")
         
         if st.session_state.mode == 'binary':
             # BINARY MODE
-            st.caption("Which text better describes the video?")
+            st.markdown("#### Which description is better?")
+            
+            # Map colors to emojis
+            emoji1 = "🔴" if video['color1'] == 'red' else "🟡"
+            emoji2 = "🟡" if video['color2'] == 'yellow' else "🔴"
             
             choice = st.radio(
-                "Select the better text:",
-                [f"{video['color1'].upper()} Text", f"{video['color2'].upper()} Text", "Both Equal"],
-                key=f"binary_choice_{idx}"
+                "Select your choice:",
+                [f"{emoji1} {video['color1'].upper()} is better", 
+                 f"{emoji2} {video['color2'].upper()} is better", 
+                 "🤝 Both are equally good"],
+                key=f"binary_choice_{idx}",
+                help="Pick the description that more accurately captures the worker's actions"
             )
             
-            notes = st.text_area("Why? (optional)", key=f"notes_{idx}", height=100, 
-                               placeholder="Brief explanation of your choice...")
+            st.markdown("#### Why did you choose this? (Optional)")
+            notes = st.text_area(
+                "Reasoning:",
+                key=f"notes_{idx}", 
+                height=100,
+                placeholder="E.g., 'Red missed some steps' or 'Yellow had better detail'...",
+                label_visibility="collapsed"
+            )
             
-            if st.button("✓ Submit & Next", type="primary", use_container_width=True):
+            st.divider()
+            
+            if st.button("✅ Submit & Next Video", type="primary", use_container_width=True):
                 # Binary scoring: 1 for winner, 0 for loser, 0.5 for tie
-                if "Both Equal" in choice:
+                if "equally" in choice.lower():
                     score1, score2 = 0.5, 0.5
                 elif video['color1'].upper() in choice:
                     score1, score2 = 1, 0
                 else:
                     score1, score2 = 0, 1
                 
-                with st.spinner("Saving scores..."):
+                with st.spinner("Saving your scores..."):
                     save_score_to_gcs(video['name'], st.session_state.rater_id, video['color1'], 
                               video['model1'], {}, score1, notes, mode='binary')
                     save_score_to_gcs(video['name'], st.session_state.rater_id, video['color2'],
