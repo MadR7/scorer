@@ -285,7 +285,7 @@ def main():
     
     st.set_page_config(page_title="Video Description Scoring", layout="wide")
     
-    # Custom CSS for black background and mobile-friendly layout
+    # Custom CSS for black background
     st.markdown("""
         <style>
         .stApp {
@@ -304,86 +304,25 @@ def main():
         div[data-baseweb="select"] {
             color: #FFFFFF;
         }
-        
-        /* Mobile optimizations */
-        @media (max-width: 768px) {
-            .stApp {
-                padding: 0.3rem !important;
-            }
-            .main .block-container {
-                padding-top: 0.5rem !important;
-                padding-bottom: 0.5rem !important;
-            }
-            h1 {
-                font-size: 1.3rem !important;
-                margin: 0.3rem 0 !important;
-            }
-            h2, h3 {
-                font-size: 1rem !important;
-                margin: 0.2rem 0 !important;
-            }
-            .stMarkdown p {
-                font-size: 0.8rem !important;
-                margin: 0.1rem 0 !important;
-            }
-            .stButton button {
-                font-size: 0.85rem !important;
-                padding: 0.3rem !important;
-            }
-            .stRadio {
-                font-size: 0.8rem !important;
-            }
-            .stRadio label {
-                padding: 0.2rem 0 !important;
-            }
-            .stTextArea textarea {
-                font-size: 0.8rem !important;
-                height: 40px !important;
-            }
-            .stProgress {
-                height: 3px !important;
-            }
-            /* Make video smaller on mobile */
-            video {
-                max-height: 30vh !important;
-            }
-            .text-description {
-                max-height: 100px !important;
-                font-size: 11px !important;
-            }
-            /* Hide dividers on mobile */
-            hr {
-                margin: 0.3rem 0 !important;
-            }
-        }
-        
-        /* Compact spacing */
-        .element-container {
-            margin-bottom: 0.3rem !important;
-        }
-        
-        /* Scrollable text descriptions */
-        .text-description {
-            max-height: 200px;
-            overflow-y: auto;
-            padding: 10px;
-            border: 1px solid #333;
-            border-radius: 5px;
-            margin-bottom: 10px;
-        }
         </style>
     """, unsafe_allow_html=True)
     
-    st.title("Video Scoring")
+    st.title("Video Description Scoring")
     
-    # Compact instructions
-    with st.expander("ℹ️ Instructions"):
-        st.markdown("""
-        Watch 3 videos. For each, pick which description (RED or YELLOW) is better. 
-        A good description lets you replicate the task perfectly.
-        """)
+    # Clear, prominent instructions
+    st.markdown("""
+    ### Welcome! 👋
     
-    st.markdown("---")
+    **What you'll do:**
+    1. Watch 3 short videos (1-2 minutes each)
+    2. For each video, you'll see two descriptions (in RED and YELLOW)
+    3. Pick which description is better, or say they're equal
+    4. The criteria to pick is, with just the description, you should be able to perfectly replicate the task in the video
+    
+ 
+    """)
+    
+    st.divider()
     
     # Step 1: Setup (simplified for end users)
     if st.session_state.selected_run is None:
@@ -464,9 +403,9 @@ def main():
     # Current video
     video = videos[idx]
     
-    # Progress indicator (compact)
-    st.progress((idx) / len(videos))
-    st.markdown(f"**Video {idx+1}/3**")
+    # Progress indicator
+    st.progress((idx) / len(videos), text=f"Video {idx+1} of 3")
+    st.subheader(f"Video {idx+1}/3")
     
     # Download video
     with st.spinner("Loading video..."):
@@ -479,8 +418,8 @@ def main():
             st.rerun()
         return
     
-    # LAYOUT (responsive: stacks on mobile)
-    left_col, right_col = st.columns([2, 1], gap="small")
+    # LAYOUT
+    left_col, right_col = st.columns([2, 1])
     
     with left_col:
         # Video (large, top)
@@ -491,26 +430,18 @@ def main():
         
         with text_col1:
             color1 = video['color1']
+            st.markdown(f"<div style='font-size: 18px; font-weight: bold; color: {color1}; margin-bottom: 10px;'>{color1.upper()} TEXT</div>", unsafe_allow_html=True)
             formatted1 = format_steps(video['text1'])
-            st.markdown(f"""
-                <div style='font-weight: bold; color: {color1}; margin-bottom: 5px;'>{color1.upper()}</div>
-                <div class='text-description' style='max-height: 150px; overflow-y: auto; font-size: 13px; line-height: 1.4; color: {color1}; padding: 8px; border: 1px solid #333; border-radius: 5px;'>
-                    {formatted1}
-                </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size: 15px; line-height: 1.6;'><span style='color: {color1};'>{formatted1}</span></div>", unsafe_allow_html=True)
         
         with text_col2:
             color2 = video['color2']
+            st.markdown(f"<div style='font-size: 18px; font-weight: bold; color: {color2}; margin-bottom: 10px;'>{color2.upper()} TEXT</div>", unsafe_allow_html=True)
             formatted2 = format_steps(video['text2'])
-            st.markdown(f"""
-                <div style='font-weight: bold; color: {color2}; margin-bottom: 5px;'>{color2.upper()}</div>
-                <div class='text-description' style='max-height: 150px; overflow-y: auto; font-size: 13px; line-height: 1.4; color: {color2}; padding: 8px; border: 1px solid #333; border-radius: 5px;'>
-                    {formatted2}
-                </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size: 15px; line-height: 1.6;'><span style='color: {color2};'>{formatted2}</span></div>", unsafe_allow_html=True)
     
     with right_col:
-        st.markdown("**Pick Better:**")
+        st.markdown("### Pick the Better Description")
         
         if st.session_state.mode == 'binary':
             # BINARY MODE
@@ -520,23 +451,23 @@ def main():
             emoji2 = "🟡" if video['color2'] == 'yellow' else "🔴"
             
             choice = st.radio(
-                "",
+                "Which is better?",
                 [f"{emoji1} {video['color1'].upper()}", 
                  f"{emoji2} {video['color2'].upper()}", 
-                 "Equal"],
-                key=f"binary_choice_{idx}",
-                label_visibility="collapsed"
+                 "Both equal"],
+                key=f"binary_choice_{idx}"
             )
             
             notes = st.text_area(
-                "Notes",
+                "Why? (optional)",
                 key=f"notes_{idx}", 
-                height=50,
-                placeholder="Optional...",
-                label_visibility="collapsed"
+                height=80,
+                placeholder="Optional notes...",
             )
             
-            if st.button("Submit", type="primary", use_container_width=True):
+            st.divider()
+            
+            if st.button("Submit & Next", type="primary", use_container_width=True):
                 # Binary scoring: 1 for winner, 0 for loser, 0.5 for tie
                 if "equal" in choice.lower():
                     score1, score2 = 0.5, 0.5
