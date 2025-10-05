@@ -284,6 +284,29 @@ def main():
     init_session()
     
     st.set_page_config(page_title="Video Description Scoring", layout="wide")
+    
+    # Custom CSS for black background
+    st.markdown("""
+        <style>
+        .stApp {
+            background-color: #000000;
+            color: #FFFFFF;
+        }
+        .stMarkdown, .stText, p, h1, h2, h3, h4, h5, h6, label {
+            color: #FFFFFF !important;
+        }
+        .stRadio label {
+            color: #FFFFFF !important;
+        }
+        .stTextArea label {
+            color: #FFFFFF !important;
+        }
+        div[data-baseweb="select"] {
+            color: #FFFFFF;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
     st.title("Video Description Scoring")
     
     # Clear, prominent instructions
@@ -296,7 +319,7 @@ def main():
     3. Pick which description is better, or say they're equal
     4. The criteria to pick is, with just the description, you should be able to perfectly replicate the task in the video
     
-
+ 
     """)
     
     st.divider()
