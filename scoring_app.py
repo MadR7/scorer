@@ -530,60 +530,60 @@ def main():
             
             st.session_state.current_idx += 1
             st.rerun()
+    
+    else:
+        # DETAILED MODE (not used, but keeping for compatibility)
+        st.caption("Enter points to deduct (0 if none)")
         
-        else:
-            # DETAILED MODE
-            st.caption("Enter points to deduct (0 if none)")
+        # Score for color 1
+        st.markdown(f"**{color1.upper()} Text**")
+        deductions1 = {}
+        for cat in RUBRIC:
+            deductions1[cat['key']] = st.number_input(
+                cat['name'],
+                min_value=0,
+                max_value=100,
+                value=0,
+                key=f"c1_{cat['key']}_{idx}",
+                help=f"Points to deduct for {cat['name'].lower()}"
+            )
+        total1 = sum(deductions1.values())
+        score1 = max(0, 100 - total1)
+        st.markdown(f"**Score: {score1}/100**")
+        
+        st.divider()
+        
+        # Score for color 2
+        st.markdown(f"**{color2.upper()} Text**")
+        deductions2 = {}
+        for cat in RUBRIC:
+            deductions2[cat['key']] = st.number_input(
+                cat['name'],
+                min_value=0,
+                max_value=100,
+                value=0,
+                key=f"c2_{cat['key']}_{idx}",
+                help=f"Points to deduct for {cat['name'].lower()}"
+            )
+        total2 = sum(deductions2.values())
+        score2 = max(0, 100 - total2)
+        st.markdown(f"**Score: {score2}/100**")
+        
+        st.divider()
+        
+        # Notes
+        notes = st.text_area("Notes (optional)", key=f"notes_{idx}", height=80)
+        
+        # Submit
+        if st.button("✓ Submit & Next", type="primary", use_container_width=True):
+            with st.spinner("Saving..."):
+                save_score_to_gcs(video['name'], st.session_state.rater_id, color1, 
+                          video['model1'], deductions1, score1, notes, mode='detailed')
+                save_score_to_gcs(video['name'], st.session_state.rater_id, color2,
+                          video['model2'], deductions2, score2, notes, mode='detailed')
             
-            # Score for color 1
-            st.markdown(f"**{video['color1'].upper()} Text**")
-            deductions1 = {}
-            for cat in RUBRIC:
-                deductions1[cat['key']] = st.number_input(
-                    cat['name'],
-                    min_value=0,
-                    max_value=100,
-                    value=0,
-                    key=f"c1_{cat['key']}_{idx}",
-                    help=f"Points to deduct for {cat['name'].lower()}"
-                )
-            total1 = sum(deductions1.values())
-            score1 = max(0, 100 - total1)
-            st.markdown(f"**Score: {score1}/100**")
-            
-            st.divider()
-            
-            # Score for color 2
-            st.markdown(f"**{video['color2'].upper()} Text**")
-            deductions2 = {}
-            for cat in RUBRIC:
-                deductions2[cat['key']] = st.number_input(
-                    cat['name'],
-                    min_value=0,
-                    max_value=100,
-                    value=0,
-                    key=f"c2_{cat['key']}_{idx}",
-                    help=f"Points to deduct for {cat['name'].lower()}"
-                )
-            total2 = sum(deductions2.values())
-            score2 = max(0, 100 - total2)
-            st.markdown(f"**Score: {score2}/100**")
-            
-            st.divider()
-            
-            # Notes
-            notes = st.text_area("Notes (optional)", key=f"notes_{idx}", height=80)
-            
-            # Submit
-            if st.button("✓ Submit & Next", type="primary", use_container_width=True):
-                with st.spinner("Saving scores..."):
-                    save_score_to_gcs(video['name'], st.session_state.rater_id, video['color1'], 
-                              video['model1'], deductions1, score1, notes, mode='detailed')
-                    save_score_to_gcs(video['name'], st.session_state.rater_id, video['color2'],
-                              video['model2'], deductions2, score2, notes, mode='detailed')
-                
-                st.session_state.current_idx += 1
-                st.rerun()
+            st.session_state.current_idx += 1
+            st.rerun()
 
 
 if __name__ == "__main__":
