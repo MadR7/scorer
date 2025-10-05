@@ -310,49 +310,43 @@ def main():
             max-height: 250px !important;
         }
         
-        /* Scrollable description boxes */
+        /* Description boxes (full height, no scroll) */
         .description-box {
-            max-height: 120px;
-            overflow-y: auto;
-            padding: 10px;
-            border: 1px solid #333;
-            border-radius: 5px;
-            margin-bottom: 5px;
-            font-size: 13px;
-            line-height: 1.4;
+            padding: 12px;
+            border: 2px solid #444;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            font-size: 14px;
+            line-height: 1.5;
+            background-color: #111;
         }
         
         /* Compact radio buttons */
         .stRadio > div {
-            gap: 0.2rem !important;
+            gap: 0.3rem !important;
         }
         
         .stRadio label {
-            font-size: 15px !important;
-            padding: 2px 0 !important;
-        }
-        
-        /* Make tabs compact */
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 0px;
-            margin-bottom: 5px;
-        }
-        
-        .stTabs [data-baseweb="tab"] {
-            padding: 6px 12px;
-            font-size: 14px;
+            font-size: 16px !important;
+            padding: 4px 0 !important;
         }
         
         /* Compact headers */
         h3 {
-            margin-top: 5px !important;
-            margin-bottom: 8px !important;
-            font-size: 1.2rem !important;
+            margin-top: 10px !important;
+            margin-bottom: 10px !important;
+            font-size: 1.3rem !important;
+        }
+        
+        h4 {
+            margin-top: 8px !important;
+            margin-bottom: 6px !important;
+            font-size: 1.1rem !important;
         }
         
         /* Compact progress */
         .stProgress {
-            margin-bottom: 5px !important;
+            margin-bottom: 8px !important;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -487,21 +481,21 @@ def main():
     # Video at top (compact)
     st.video(str(video_path))
     
-    # Tabs for descriptions (mobile-friendly)
+    # Both descriptions stacked vertically (no tabs, no scrolling)
     color1 = video['color1']
     color2 = video['color2']
     emoji1 = "🔴" if color1 == 'red' else "🟡"
     emoji2 = "🟡" if color2 == 'yellow' else "🔴"
     
-    tab1, tab2 = st.tabs([f"{emoji1} {color1.upper()}", f"{emoji2} {color2.upper()}"])
+    # First description
+    st.markdown(f"#### {emoji1} {color1.upper()} Description")
+    formatted1 = format_steps(video['text1'])
+    st.markdown(f"<div class='description-box'><span style='color: {color1};'>{formatted1}</span></div>", unsafe_allow_html=True)
     
-    with tab1:
-        formatted1 = format_steps(video['text1'])
-        st.markdown(f"<div class='description-box'><span style='color: {color1};'>{formatted1}</span></div>", unsafe_allow_html=True)
-    
-    with tab2:
-        formatted2 = format_steps(video['text2'])
-        st.markdown(f"<div class='description-box'><span style='color: {color2};'>{formatted2}</span></div>", unsafe_allow_html=True)
+    # Second description
+    st.markdown(f"#### {emoji2} {color2.upper()} Description")
+    formatted2 = format_steps(video['text2'])
+    st.markdown(f"<div class='description-box'><span style='color: {color2};'>{formatted2}</span></div>", unsafe_allow_html=True)
     
     # Scoring section
     if st.session_state.mode == 'binary':
